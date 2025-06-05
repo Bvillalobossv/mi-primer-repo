@@ -27,15 +27,25 @@ def calcular_requerimientos(nombre, req_bruto, recepciones, disp_inicial, lead, 
     # Mostrar tabla (compatible con TI-Nspire)
     print("\nTabla de: " + nombre)
     print("Per  Bruto  Recep  Disp  Neto  Planif  Emitida")
+
+    # MicroPython de TI-Nspire no soporta str.format con "{:>}" porque
+    # internamente requiere str.rjust, ausente en esta plataforma. Se define un
+    # rjust simple para alinear texto a la derecha.
+    def rjust(val, ancho):
+        s = str(val)
+        if len(s) < ancho:
+            s = " " * (ancho - len(s)) + s
+        return s
+
     for t in range(n):
-        linea = "{0:>3} {1:>6} {2:>6} {3:>5} {4:>6} {5:>7} {6:>8}".format(
-            str(t+1),
-            str(req_bruto[t]),
-            str(recepciones[t]),
-            str(disponible[t+1]),
-            str(req_neto[t]),
-            str(orden_planificada[t]),
-            str(orden_emitida[t])
+        linea = (
+            rjust(t + 1, 3) + " " +
+            rjust(req_bruto[t], 6) + " " +
+            rjust(recepciones[t], 6) + " " +
+            rjust(disponible[t+1], 5) + " " +
+            rjust(req_neto[t], 6) + " " +
+            rjust(orden_planificada[t], 7) + " " +
+            rjust(orden_emitida[t], 8)
         )
         print(linea)
     return orden_emitida
