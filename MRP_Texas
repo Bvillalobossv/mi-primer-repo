@@ -1,0 +1,119 @@
+def solicitar_lista(mensaje, n):
+    lista = []
+    for i in range(n):
+        val = input(mensaje + " periodo " + str(i+1) + ": ")
+        lista.append(0 if val == "-" else int(val))
+    return lista
+
+def calcular_requerimientos(nombre, req_bruto, recepciones, disp_inicial, lead, lote, ss):
+    n = len(req_bruto)
+    disponible = [0] * (n + 1)
+    req_neto = [0] * n
+    orden_planificada = [0] * n
+    orden_emitida = [0] * n
+
+    disponible[0] = disp_inicial
+
+    for t in range(n):
+        disponible[t+1] = disponible[t] + recepciones[t] - req_bruto[t]
+        if disponible[t+1] < ss:
+            req_neto[t] = max(ss - disponible[t+1], 0)
+            orden = req_neto[t] if lote == -1 else ((req_neto[t] + lote - 1) // lote) * lote
+            orden_planificada[t] = orden
+            if t - lead >= 0:
+                orden_emitida[t - lead] = orden
+            disponible[t+1] += orden
+
+    # Mostrar tabla (compatible con TI-Nspire)
+    print("\nTabla de: " + nombre)
+    print("Per  Bruto  Recep  Disp  Neto  Planif  Emitida")
+    for t in range(n):
+        linea = "{0:>3} {1:>6} {2:>6} {3:>5} {4:>6} {5:>7} {6:>8}".format(
+            str(t+1),
+            str(req_bruto[t]),
+            str(recepciones[t]),
+            str(disponible[t+1]),
+            str(req_neto[t]),
+            str(orden_planificada[t]),
+            str(orden_emitida[t])
+        )
+        print(linea)
+    return orden_emitida
+
+def propagar_bom(nombre, bom, ordenes_emitidas, elementos):
+    if nombre not in bom:
+        return
+    for (hijo, cantidad) in bom[nombre]:
+        if hijo not in elementos:
+            continue
+        if "req_bruto" not in elementos[hijo]:
+            elementos[hijo]["req_bruto"] = [0] * len(ordenes_emitidas)
+        for i in range(len(ordenes_emitidas)):
+            elementos[hijo]["req_bruto"][i] += ordenes_emitidas[i] * cantidad
+        propagar_bom(hijo, bom, elementos[hijo]["req_bruto"], elementos)
+
+def main():
+    print("PLANIFICADOR MRP PARA TI-Nspire")
+    n = int(input("Cuantos periodos?: "))
+    m = int(input("Cuantos elementos?: "))
+
+    elementos = {}
+    nombres = []
+    bom = {}
+
+    for i in range(m):
+        print("\nElemento " + str(i+1))
+        nombre = input("Nombre (ENTER para 'Elem" + str(i+1) + "'): ")
+        if nombre == "":
+            nombre = "Elem" + str(i+1)
+        nombres.append(nombre)
+
+        disp = int(input("Disponibilidad inicial (0 si no hay): "))
+        lead = int(input("Lead time (periodos): "))
+        lote = int(input("Tamaño de lote (-1 para Lote a Lote): "))
+        ss = int(input("Stock de seguridad (0 si no hay): "))
+        print("Recepciones programadas (use '-' si no hay):")
+        recep = solicitar_lista("Recepcion para", n)
+
+        elementos[nombre] = {
+            "disp": disp,
+            "lead": lead,
+            "lote": lote,
+            "ss": ss,
+            "recep": recep
+        }
+
+        if i == 0:
+            print("Demanda del producto final (use '-' si no hay):")
+            elementos[nombre]["req_bruto"] = solicitar_lista("Demanda para", n)
+
+    print("\nDefinir estructura BOM:")
+    for nombre in nombres:
+        tiene = input(nombre + " tiene componentes? (S/N): ")
+        if tiene.upper() == "S":
+            hijos = []
+            while True:
+                hijo = input("  Componente (ENTER para terminar): ")
+                if hijo == "":
+                    break
+                cant = int(input("  Cantidad de " + hijo + " en " + nombre + ": "))
+                hijos.append((hijo, cant))
+            bom[nombre] = hijos
+
+    # Calcular MRP
+    ordenes = {}
+    for nombre in nombres:
+        if "req_bruto" not in elementos[nombre]:
+            elementos[nombre]["req_bruto"] = [0] * n
+        ordenes[nombre] = calcular_requerimientos(
+            nombre,
+            elementos[nombre]["req_bruto"],
+            elementos[nombre]["recep"],
+            elementos[nombre]["disp"],
+            elementos[nombre]["lead"],
+            elementos[nombre]["lote"],
+            elementos[nombre]["ss"]
+        )
+        propagar_bom(nombre, bom, ordenes[nombre], elementos)
+
+main()
